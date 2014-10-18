@@ -7,6 +7,8 @@
  * user guide available at http://gradle.org/docs/2.1/userguide/tutorial_java_projects.html
  */
 
+// The Checkstyle plugin performs quality checks on your project's Java source files using Checkstyle and generates reports from these checks.
+apply plugin: 'checkstyle'
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
 
@@ -27,4 +29,8 @@ dependencies {
     // testCompile dependency to testCompile 'org.testng:testng:6.8.1' and add
     // 'test.useTestNG()' to your build script.
     testCompile 'junit:junit:4.11'
+}
+
+checkstyle {
+    configFile = new File("$rootDir/src/main/resources", "checkstyle.xml")
 }
