@@ -3,6 +3,7 @@
 <module name="Checker">
   <module name="JavadocPackage"/>
   <module name="TreeWalker">
+    <module name="GenericWhitespace"/>
   </module>
   <module name="FileTabCharacter">
     <property name="eachLine" value="true"/>
