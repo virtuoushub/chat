@@ -17,7 +17,7 @@ public class DisplayExample {
             Display.create();
         } catch (LWJGLException e) {
             log.error("Failed to create display. {}",e);
-            System.exit(0);
+            System.exit(-1);//FIXME Define a spec for status codes.
         }
         // init OpenGL here
         while (!Display.isCloseRequested()) {
