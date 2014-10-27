@@ -11,6 +11,11 @@
 apply plugin: 'checkstyle'
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
+// Start Java Plugin Specific variables
+def javaVersion=1.8
+sourceCompatibility=javaVersion
+targetCompatibility=javaVersion
+// End Java Plugin Specific variables
 
 // In this section you declare where to find the dependencies of your project
 repositories {
