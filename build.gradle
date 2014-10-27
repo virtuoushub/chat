@@ -51,7 +51,7 @@ jar {
     manifest {
         attributes("Implementation-Title": "chat",
                    "Implementation-Version": version,
-                   "Main-Class": "com.ninjacave.lwjgl.basics.DisplayExample")
+                   "Main-Class": "com.ninjacave.lwjgl.basics.InputExample")
     }
 }
 
