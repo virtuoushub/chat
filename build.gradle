@@ -6,9 +6,21 @@
  * For more details take a look at the Java Quickstart chapter in the Gradle
  * user guide available at http://gradle.org/docs/2.1/userguide/tutorial_java_projects.html
  */
-
+version = '0.1.0'
+// The Checkstyle plugin performs quality checks on your project's Java source files using Checkstyle and generates reports from these checks.
+apply plugin: 'checkstyle'
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
+// Start Java Plugin Specific variables
+def javaVersion=1.8
+sourceCompatibility=javaVersion
+targetCompatibility=javaVersion
+// End Java Plugin Specific variables
+def jinputVersion='2.0.6'
+def platforms = ['windows', 'linux', 'osx']
+def os = System.getProperty('os.name').toLowerCase()
+def mainClassName ='com.ninjacave.lwjgl.basics.InputExample'
+//logger.lifecycle(os)
 
 // In this section you declare where to find the dependencies of your project
 repositories {
@@ -17,14 +29,161 @@ repositories {
     jcenter()
 }
 
+
+// see http://www.gradle.org/docs/current/javadoc/org/gradle/api/artifacts/ResolutionStrategy.html
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+configurations.all {
+    resolutionStrategy {
+        // fail eagerly on version conflict (includes transitive dependencies)
+        // e.g. multiple different versions of the same dependency (group and name are equal)
+        failOnVersionConflict()
+
+        // force certain versions of dependencies (including transitive)
+        //  *append new forced modules:
+        //force 'fooGroup:fooModule:3.1.4', 'barGroup:barModule:42'
+    }
+}
+
 // In this section you declare the dependencies for your production and test code
 dependencies {
     // The production code uses the SLF4J logging API at compile time
-    compile 'org.slf4j:slf4j-api:1.7.5'
+    compile 'org.slf4j:slf4j-api:+'
+    compile 'org.slf4j:slf4j-simple:+'
+    // See: http://lwjgl.org/
+    compile('org.lwjgl.lwjgl:lwjgl:+') {
+        //exclude group: 'org.lwjgl.lwjgl', module: 'lwjgl-platform'
+        //exclude group: 'net.java.jinput', module: 'jinput-platform'
+    }
+
+    compile("net.java.jinput:jinput:${jinputVersion}") {
+        force = true;
+        //exclude group: 'net.java.jinput', module: 'jinput-platform'
+    }
 
     // Declare the dependency for your favourite test framework you want to use in your tests.
     // TestNG is also supported by the Gradle Test task. Just change the
     // testCompile dependency to testCompile 'org.testng:testng:6.8.1' and add
     // 'test.useTestNG()' to your build script.
-    testCompile 'junit:junit:4.11'
+    testCompile 'junit:junit:+'
 }
+
+checkstyle {
+    configFile = new File("$rootDir/src/main/resources", 'checkstyle.xml')
+}
+
+jar {
+    dependsOn configurations.runtime
+
+    def getRuntimeDependencyEntities = { configurations.runtime.resolve() }                // list of included dependencies
+    def entityNames = { it.isDirectory() ? it.name : it.name[0..<it.name.lastIndexOf('.')] }  // internal directory name is source directory name or jar file name (sans .jar)
+
+    manifest {
+        attributes('Implementation-Title'   : 'chat',
+                   'Implementation-Version' : version,
+                   'Main-Class'             : mainClassName,
+                   'Class-Path'             : getRuntimeDependencyEntities().collect { entityNames(it) } // set classpath to list of internal directories created
+        )
+    }
+    def pattern = ~"(.*-natives-windows|.*-natives-linux)"
+    // copy each dependency into separate internal directory
+    doFirst {
+        getRuntimeDependencyEntities().each {
+            def dependencyDestination = entityNames(it)
+            logger.lifecycle(dependencyDestination)
+            if (it.isDirectory()) {
+                from(it) {
+                    into dependencyDestination
+                }
+            } else {
+                if (pattern.matcher(it.getName())) {
+
+                } else {
+                    from (zipTree(it)) {
+                        /**
+                        exclude 'jinput-platform-.*-natives-windows'
+                        exclude 'jinput-platform-.*-natives-linux'
+                        exclude 'lwjgl-platform-.*-natives-windows'
+                        exclude 'lwjgl-platform-.*-natives-linux'
+                         */
+                         // remove manifests and the security files from jar contents.
+                        exclude 'META-INF/MANIFEST.MF'
+                        exclude 'META-INF/*.SF'
+                        exclude 'META-INF/*.DSA'
+                        exclude 'META-INF/*.RSA'
+                        //
+                        into dependencyDestination
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+platforms.each { platform ->
+    task "${platform}Natives" {
+        def outputDir = "$buildDir/natives/$platform"
+        inputs.files(configurations.compile)
+        outputs.dir(outputDir)
+        doLast {
+            copy {
+                def artifacts = configurations.compile.resolvedConfiguration.resolvedArtifacts
+                        .findAll { it.classifier == "natives-$platform" }
+                artifacts.each {
+                    from zipTree(it.file)
+                }
+                into outputDir
+            }
+        }
+    }
+}
+
+task natives {
+    description 'Copies native libraries to an appropriate directory.'
+    dependsOn platforms.collect { "${it}Natives" }.findAll { tasks[it] }
+}
+
+// see http://forums.gradle.org/gradle/topics/how_to_use_lwjgl_or_how_to_use_native_libraries#reply_7849654
+//'-Djava.library.path=/'
+/*
+if (os.contains("windows") {
+    logger.trace('A trace log message.')
+} else if (os.contains("mac os") {
+} else { } // assume Linux
+*/
+
+/** see http://kennethjorgensen.com/blog/2014/fat-jars-with-excluded-dependencies-in-gradle/#comment-4141
+jar {
+    def getRuntimeDependencyEntities = { configurations.runtime.resolve() }                // list of included dependencies
+    def entityName = { it.isDirectory() ? it.name : it.name[0..<it.name.lastIndexOf('.')] }  // internal directory name is source directory name or jar file name (sans .jar)
+
+    manifest {
+        attributes 'Main-Class' : mainClassName
+        attributes 'Class-Path' : getRuntimeDependencyEntities().collect { entityName(it) }  // set classpath to list of internal directories created
+    }
+
+// copy each dependency into separate internal directory
+    doFirst {
+        getRuntimeDependencyEntities().each {
+            def dest = entityName(it)
+            if ( it.isDirectory() ) {
+                from (it) {
+                    into dest
+                }
+            } else {
+                // remove manifests and the security files from jar contents.
+                from (zipTree(it)) {
+                    exclude 'META-INF/MANIFEST.MF'
+                    exclude 'META-INF/*.SF'
+                    exclude 'META-INF/*.DSA'
+                    exclude 'META-INF/*.RSA'
+                    into dest
+                }
+            }
+        }
+    }
+}
+*/
