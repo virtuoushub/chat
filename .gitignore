@@ -1,6 +1,7 @@
 .gradle/
 gradle/
 build/
+*.orig
 
 # see https://github.com/github/gitignore
 *.class
